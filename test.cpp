@@ -11,6 +11,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <mutex>
+#include <condition_variable>
 
 struct buffer_t
 {
@@ -143,6 +144,65 @@ void test_good()
 	t2.join();
 }
 
+// waiting for data conditions until end
+struct buffer3_t
+{
+	char data[100];
+	char* start;
+	char* end;
+	char* max;		// no more data to process
+	std::mutex	mtx;
+	std::condition_variable cnd;
+};
+
+void realConsumer(buffer3_t* p,int id)
+{
+	std::unique_lock<std::mutex>  lock(p->mtx);	// close door
+	do
+	{
+		p->cnd.wait(lock,[p]{return p->start != p->end || p->start >= p->max;});  // open door and wait
+		if (p->start < p->end)
+		{
+			std::cout << id << *(p->start) << " ";
+			p->start++;
+		}
+	} while(p->start < p->max);
+	std::cout << id << "-end";
+}
+
+void test_real()
+{
+	struct buffer3_t buff;
+	strcpy(buff.data,
+			"abcdefghijklmnoprstuvwxyzabcdefghijklmnoprstuvwxyzabcdefghijklmnoprstuvwxyz");
+	buff.start = buff.data;
+	buff.max = buff.data + strlen(buff.data);
+	std::thread t1(realConsumer, &buff,1);
+	std::thread t2(realConsumer, &buff,2);
+
+	{
+		std::unique_lock < std::mutex > lock(buff.mtx);	// close door
+		buff.end += 2;
+		buff.cnd.notify_one();
+		buff.cnd.wait(lock, [&buff] {	return buff.start == buff.end;});		//open
+
+		buff.end += 4;
+		buff.cnd.notify_all();
+		buff.cnd.wait(lock, [&buff] {	return buff.start == buff.end;});		//open
+
+		buff.end += 30;
+		buff.cnd.notify_all();
+		buff.cnd.wait(lock, [&buff] {	return buff.start == buff.end;});
+
+		buff.end = buff.max;	/// we do everything and finish
+		buff.cnd.notify_all();
+		buff.cnd.wait(lock, [&buff] {	return buff.start == buff.end;});
+	} // the door is opne forever do not forget enclose in this
+
+	t1.join();
+	t2.join();
+}
+
 int main()
 {
 	std::cout << std::endl << "Test 0" << std::endl;
@@ -151,6 +211,8 @@ int main()
 	test1();
 	std::cout << std::endl << "Test good" << std::endl;
 	test_good();
+	std::cout << std::endl << "Test real" << std::endl;
+	test_real();
 	std::cout << std::endl;
 	return 0;
 
