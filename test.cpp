@@ -157,15 +157,17 @@ struct buffer3_t
 
 void realConsumer(buffer3_t* p,int id)
 {
-	std::unique_lock<std::mutex>  lock(p->mtx);	// close door
 	do
 	{
+		usleep(1);
+		std::unique_lock<std::mutex>  lock(p->mtx);	// close door
 		p->cnd.wait(lock,[p]{return p->start != p->end || p->start >= p->max;});  // open door and wait
 		if (p->start < p->end)
 		{
 			std::cout << id << *(p->start) << " ";
 			p->start++;
 		}
+		if (p->start == p->end) p->cnd.notify_all();	// tell to everybody that we finish
 	} while(p->start < p->max);
 	std::cout << id << "-end";
 }
@@ -176,6 +178,7 @@ void test_real()
 	strcpy(buff.data,
 			"abcdefghijklmnoprstuvwxyzabcdefghijklmnoprstuvwxyzabcdefghijklmnoprstuvwxyz");
 	buff.start = buff.data;
+	buff.end = buff.data;
 	buff.max = buff.data + strlen(buff.data);
 	std::thread t1(realConsumer, &buff,1);
 	std::thread t2(realConsumer, &buff,2);
