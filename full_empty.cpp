@@ -49,8 +49,32 @@ void child(struct table_t* t, int id)
       if (t->count ==0)
         t->cnd.notify_one();    // avisale al padre
     }
-    std::cout << c << std::endl;    // usa el dato obtenido
-    sleep(1);
+    std::cout << c << std::endl;    // usa el dato obtenido o repetir el ultimo
+    usleep(500*1000);
+  }
+  std::cout << "end of "<< id << std::endl;
+}
+
+void child_ordered(struct table_t* t, int id)
+{
+  char  c;
+  unsigned pos = 0;
+  while (t->count < sizeof(t->plates) + 1)
+  {
+    // try to eat
+    if (t->count != 0)
+    {
+      c = t->plates[pos];
+      pos++;
+      if (pos == t->count)
+      {
+        pos = 0;
+        t->count = 0;
+        t->cnd.notify_one();    // avisale al padre
+      }
+      std::cout << c << std::endl;    // usa el dato obtenido aqui no repetimos dato
+    }
+    usleep(250*1000);
   }
   std::cout << "end of "<< id << std::endl;
 }
@@ -61,7 +85,7 @@ int main()
   tbl.count = 0;
   std::thread t(child,&tbl,1);
 
-  std::unique_lock < std::mutex > lock(tbl.mtx); // close door no lo necesitamos pero asi fucniona el sistema
+  std::unique_lock < std::mutex > lock(tbl.mtx); // close door no lo necesitamos pero asi fucniona el sistema el padre siempre tiene el candado cerrado pero no importa
   memcpy(tbl.plates,"ABCDEFGHIJKLMN",10);
   tbl.count = 10;
   tbl.cnd.wait(lock, [&tbl] { return tbl.count == 0;});     // esperar
@@ -70,8 +94,27 @@ int main()
   tbl.count = 16;
   tbl.cnd.wait(lock, [&tbl] { return tbl.count == 0;});     // esperar
 
+  sleep(3);   // el hilo va a repetir el ultimo dato
+
   tbl.count = 25;   // en el proximo segundo el hilo se muere
   t.join();
+
+
+  tbl.count = 0;
+  std::thread t1(child_ordered,&tbl,2);
+
+  memcpy(tbl.plates,"ABCDEFGHIJKLMN",10);
+  tbl.count = 10;
+  tbl.cnd.wait(lock, [&tbl] { return tbl.count == 0;});     // esperar
+
+  memcpy(tbl.plates,"12345678901234567",16);
+  tbl.count = 16;
+  tbl.cnd.wait(lock, [&tbl] { return tbl.count == 0;});     // esperar
+
+  sleep(3);   // el hilo no va a repetir el ultimo dato
+
+  tbl.count = 25;   // en el proximo segundo el hilo se muere
+  t1.join();
   return 0;
 
 }
