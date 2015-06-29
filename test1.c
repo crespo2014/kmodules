@@ -24,7 +24,50 @@
 #include <linux/kthread.h>  // for threads
 #include <linux/string.h>
 
+bool opened = false;
 
+struct cmd_if {    // command interface
+  unsigned wr;
+  unsigned rd;
+  char op[50];
+}
+
+void commandThread(struct cmd_if* cmd)
+{
+    char c;
+    for (;;)
+    {
+    if (cmd->wr > cmd->rd)
+    {
+        c = cmd[cmd->rd];
+        cmd->rd++;
+    }
+    printfk("%c\n",c);
+    sleep(1000);
+     // i thread closing then close
+    }
+}
+
+void AddCommand(struct cmd_if* cmd)
+{
+    if (cmd->rd != cmd->wr)
+        //wait
+    cmd->wr = 0;
+    cmd->rd= 0;
+    // copy data from user
+    cmd->wr += len;
+    // repeat
+}
+
+void DoCommand(struct cmd_if* cmd)
+{
+    int pos =0;
+    for (pos=0;pos<size;++pos)
+    {
+        // out
+        sleep(1000);
+    }
+}
 
 static int module_init_1(void)
 {
