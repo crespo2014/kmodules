@@ -21,9 +21,9 @@
 struct table_t
 {
   // volatile bool go;
-  unsigned counter;
+  //unsigned counter;
   volatile bool go;
-  //std::atomic_ulong counter;
+  std::atomic_ulong counter;
 };
 
 

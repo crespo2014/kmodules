@@ -24,13 +24,13 @@
 #include <linux/kthread.h>  // for threads
 #include <linux/string.h>
 
-bool opened = false;
+unsigned opened = false;
 
 struct cmd_if {    // command interface
   unsigned wr;
   unsigned rd;
   char op[50];
-}
+};
 
 void commandThread(struct cmd_if* cmd)
 {
@@ -39,11 +39,11 @@ void commandThread(struct cmd_if* cmd)
     {
     if (cmd->wr > cmd->rd)
     {
-        c = cmd[cmd->rd];
+        c = cmd->op[cmd->rd];
         cmd->rd++;
     }
-    printfk("%c\n",c);
-    sleep(1000);
+    printk("%c\n",c);
+    msleep(1000);
      // i thread closing then close
     }
 }
@@ -69,9 +69,15 @@ void DoCommand(struct cmd_if* cmd)
     }
 }
 
+static const struct file_operations deferred_initcalls_fops = {
+   .open = device_open, //
+   .read = device_read,
+   //TODO .write = device_write, // write ascii 1 to do all calls in one go
+};
+
 static int module_init_1(void)
 {
-    //proc_create("deferred_initcalls", 0, NULL, &deferred_initcalls_fops);
+    proc_create("deferred_initcalls", 0, NULL, &deferred_initcalls_fops);
     return 0;
 }
 
